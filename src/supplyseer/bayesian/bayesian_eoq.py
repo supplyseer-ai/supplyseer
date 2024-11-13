@@ -1,164 +1,151 @@
 import numpy as np
+from dataclasses import dataclass
+from typing import List, Union, Optional, Dict, Tuple
 from src.supplyseer.eoq import eoq
-from typing import List, Union, Optional, Dict
 
+@dataclass
+class EOQParameters:
+    """Data class to hold EOQ parameters and their ranges."""
+    demand: float
+    order_cost: float
+    holding_cost: float
+    min_demand: float
+    max_demand: float
+    min_order_cost: float
+    max_order_cost: float
+    min_holding_cost: float
+    max_holding_cost: float
+    initial_demand: float
+    initial_order_cost: float
+    initial_holding_cost: float
 
-def normal_pdf(x, mean, std):
-    """
-    Normal probability density function
+class ProbabilityDistribution:
+    """Class for handling probability distributions and calculations."""
+    
+    @staticmethod
+    def normal_pdf(x: np.ndarray, mean: float, std: float) -> np.ndarray:
+        """Calculate normal probability density function."""
+        return (1/np.sqrt(2 * np.pi * std**2)) * np.exp(-.5 * ((x - mean)**2) / std**2)
 
-    Args:
-        x: data
-        mean: mean of the distribution
-        std: standard deviation of the distribution
+class BayesianEOQ:
+    """Main class for Bayesian EOQ calculations."""
+    
+    def __init__(self, parameters: EOQParameters, n_param_values: int):
+        self.params = parameters
+        self.n_param_values = n_param_values
+        self._initialize_parameter_ranges()
+        self._calculate_posteriors()
+        
+    def _initialize_parameter_ranges(self):
+        """Initialize parameter ranges for calculations."""
+        self.d_range = np.linspace(self.params.min_demand, self.params.max_demand, self.n_param_values)
+        self.a_range = np.linspace(self.params.min_order_cost, self.params.max_order_cost, self.n_param_values)
+        self.h_range = np.linspace(self.params.min_holding_cost, self.params.max_holding_cost, self.n_param_values)
 
-    Returns:
-        float
-    """
-    return (1/np.sqrt(2 * np.pi * std**2)) * np.exp(-.5 * ((x - mean)**2 ) / std**2)
-
-
-
-def bayesian_computation(d, a, h,
-                         d_range, a_range, h_range,
-                         belief_d, belief_a, belief_h):
-    """
-    Computes the posterior distribution of the EOQ parameters using a Bayesian approach.
-    Naive assumptions are made for the prior and likelihood functions assuming normal distributions.
-
-    Args:
-        d: demand
-        a: ordering cost
-        h: holding cost
-        d_range: range of demand values
-        a_range: range of ordering cost values
-        h_range: range of holding cost values
-        belief_d: initial guess for demand
-        belief_a: initial guess for ordering cost
-        belief_h: initial guess for holding cost
-
-    Returns:
-        tuple: posterior of demand, posterior of order cost, posterior of holding cost
-    """
-    def bayesian_posterior(x, parameter_range, initial_guess):
-        """
-        Calculates the posterior distribution of a parameter using a Bayesian approach.
-        """
-        prior = normal_pdf(parameter_range, x, x*.1)
-        likelihood_pdf = normal_pdf(initial_guess, parameter_range, x*.1)
-        unnormalized_posterior = prior * likelihood_pdf
+    def _bayesian_posterior(self, x: float, parameter_range: np.ndarray, initial_guess: float) -> np.ndarray:
+        """Calculate posterior distribution for a parameter."""
+        prior = ProbabilityDistribution.normal_pdf(parameter_range, x, x * 0.1)
+        likelihood = ProbabilityDistribution.normal_pdf(initial_guess, parameter_range, x * 0.1)
+        unnormalized_posterior = prior * likelihood
         marginal_likelihood = np.trapz(unnormalized_posterior, parameter_range)
-        posterior = unnormalized_posterior / marginal_likelihood
+        return unnormalized_posterior / marginal_likelihood
 
-        return posterior
+    def _calculate_posteriors(self):
+        """Calculate posterior distributions for all parameters."""
+        self.posterior_d = self._bayesian_posterior(
+            self.params.demand, self.d_range, self.params.initial_demand)
+        self.posterior_a = self._bayesian_posterior(
+            self.params.order_cost, self.a_range, self.params.initial_order_cost)
+        self.posterior_h = self._bayesian_posterior(
+            self.params.holding_cost, self.h_range, self.params.initial_holding_cost)
+
+    def calculate_credible_interval(self) -> List[float]:
+        """Calculate credible interval for EOQ."""
+        quantiles = [0.025, 0.975]
+        
+        def get_interval_values(posterior: np.ndarray, param_range: np.ndarray) -> List[float]:
+            indices = [np.argmin(np.abs(posterior - np.quantile(posterior, q))) for q in quantiles]
+            return [param_range[i] for i in indices]
+        
+        interval_d = get_interval_values(self.posterior_d, self.d_range)
+        interval_a = get_interval_values(self.posterior_a, self.a_range)
+        interval_h = get_interval_values(self.posterior_h, self.h_range)
+        
+        return [eoq(d, a, h) 
+                for d in interval_d 
+                for a in interval_a 
+                for h in interval_h]
+
+    def calculate_distribution(self, parameter_space: str = 'full', n_simulations: int = 1) -> List[float]:
+        """Calculate EOQ distribution based on parameter space."""
+        if parameter_space == 'full':
+            return [eoq(d, a, h) 
+                    for d in self.d_range 
+                    for a in self.a_range 
+                    for h in self.h_range]
+        elif parameter_space == 'montecarlo':
+            eoq_montecarlo = eoq(self.d_range, self.a_range, self.h_range)
+            return np.random.choice(eoq_montecarlo, size=n_simulations, replace=True).tolist()
+        return []
+
+    def get_most_probable_values(self) -> Dict[str, float]:
+        """Get most probable values for EOQ parameters."""
+        return {
+            'eoq': eoq(
+                self.d_range[np.argmax(self.posterior_d)],
+                self.a_range[np.argmax(self.posterior_a)],
+                self.h_range[np.argmax(self.posterior_h)]
+            ),
+            'd': self.d_range[np.argmax(self.posterior_d)],
+            'a': self.a_range[np.argmax(self.posterior_a)],
+            'h': self.h_range[np.argmax(self.posterior_h)]
+        }
+
+    def get_least_probable_values(self) -> Dict[str, Dict[str, float]]:
+        """Get least probable values for EOQ parameters."""
+        return {
+            'min': {
+                'eoq': eoq(self.params.min_demand, self.params.min_order_cost, self.params.min_holding_cost),
+                'd': self.params.min_demand,
+                'a': self.params.min_order_cost,
+                'h': self.params.min_holding_cost
+            },
+            'max': {
+                'eoq': eoq(self.params.max_demand, self.params.max_order_cost, self.params.max_holding_cost),
+                'd': self.params.max_demand,
+                'a': self.params.max_order_cost,
+                'h': self.params.max_holding_cost
+            }
+        }
+
+    def compute_full_analysis(self, parameter_space: str = 'full', n_simulations: int = 1) -> Dict:
+        """Compute complete Bayesian EOQ analysis."""
+        return {
+            'bayesian_eoq_most_probable': self.get_most_probable_values(),
+            'bayesian_eoq_min_least_probable': self.get_least_probable_values()['min'],
+            'bayesian_eoq_max_least_probable': self.get_least_probable_values()['max'],
+            'eoq_distribution': self.calculate_distribution(parameter_space, n_simulations),
+            'eoq_credible_interval': self.calculate_credible_interval()
+        }
+
+# Example usage:
+def bayesian_eoq_full(d: float, a: float, h: float,
+                      min_d: float, max_d: float, 
+                      min_a: float, max_a: float,
+                      min_h: float, max_h: float,
+                      initial_d: float, initial_a: float, initial_h: float,
+                      n_param_values: int, 
+                      parameter_space: str = 'full',
+                      n_simulations: int = 1) -> Dict:
+    """Wrapper function for backward compatibility."""
+    parameters = EOQParameters(
+        demand=d, order_cost=a, holding_cost=h,
+        min_demand=min_d, max_demand=max_d,
+        min_order_cost=min_a, max_order_cost=max_a,
+        min_holding_cost=min_h, max_holding_cost=max_h,
+        initial_demand=initial_d, initial_order_cost=initial_a,
+        initial_holding_cost=initial_h
+    )
     
-    posterior_d = bayesian_posterior(d, d_range, belief_d) # Normalized posterior
-    posterior_a = bayesian_posterior(a, a_range, belief_a) # Normalized posterior
-    posterior_h = bayesian_posterior(h, h_range, belief_h) # Normalized posterior
-
-    return posterior_d, posterior_a, posterior_h
-
-
-
-def eoq_credible_interval(posterior_d, posterior_a, posterior_h, d_range, a_range, h_range):
-    """
-    Computes the credible interval of the EOQ using the posterior distribution of the parameters.
-    """
-
-    quantiles = [0.025, 0.975]
-
-    indices_d = [np.argmin(np.abs(posterior_d - np.quantile(posterior_d, q))) for q in quantiles]
-    indices_a = [np.argmin(np.abs(posterior_a - np.quantile(posterior_a, q))) for q in quantiles]
-    indices_h = [np.argmin(np.abs(posterior_h - np.quantile(posterior_h, q))) for q in quantiles]
-
-    interval_d = [d_range[i] for i in indices_d]
-    interval_a = [a_range[i] for i in indices_a]
-    interval_h = [h_range[i] for i in indices_h]
-
-    eoq_credible_interval = [eoq(interval_d[i], interval_a[j], interval_h[k]) for i in range(len(interval_d)) for j in range(len(interval_a)) for k in range(len(interval_h))]
-    return eoq_credible_interval
-
-
-def bayesian_eoq_full(d: Union[int, float], a: Union[int, float], h: Union[int, float],
-                 min_d: Union[int, float], max_d: Union[int, float], min_a: Union[int, float], 
-                 max_a: Union[int, float], min_h: Union[int, float], max_h: Union[int, float],
-                 initial_d: Union[int, float], initial_a: Union[int, float], initial_h: Union[int, float],
-                 n_param_values: int, parameter_space: Optional[str] = 'full', n_simulations: Optional[int] = 1):
-    
-    """
-    This function computes the EOQ distribution and the Bayesian credible interval of the EOQ using a Bayesian approach.
-    The EOQ distribution is using a combinatorial approach to calculate the EOQ for all possible combinations of the parameters.
-    The Bayesian credible interval is calculated using the posterior distribution of the parameters.
-
-    Args:
-        d: demand
-        a: ordering cost
-        h: holding cost
-        min_d: minimum demand
-        max_d: maximum demand
-        min_a: minimum ordering cost
-        max_a: maximum ordering cost
-        min_h: minimum holding cost
-        max_h: maximum holding cost
-        initial_d: initial guess for demand
-        initial_a: initial guess for ordering cost
-        initial_h: initial guess for holding cost
-        n_param_values: number of parameter values to consider
-    """
-    d_range = np.linspace(min_d, max_d, n_param_values)
-    a_range = np.linspace(min_a, max_a, n_param_values)
-    h_range = np.linspace(min_h, max_h, n_param_values)
-
-    posterior_d, posterior_a, posterior_h = bayesian_computation(d, a, h, 
-                                                                 d_range, a_range, h_range, 
-                                                                 initial_d, initial_a, initial_h)
-
-
-    eoq_map = eoq(d_range[np.argmax(posterior_d)],
-                      a_range[np.argmax(posterior_a)],
-                      h_range[np.argmax(posterior_h)])
-    
-    eoq_min_lower = eoq(min_d,
-                        min_a,
-                        min_h)
-
-    eoq_min_upper = eoq(max_d,
-                        max_a,
-                        max_h)
-    
-    eoq_distribution = [eoq(d_range[i], a_range[j], h_range[k]) for i in range(len(d_range)) for j in range(len(a_range)) for k in range(len(h_range))]
-
-    if parameter_space == 'full':
-        eoq_distribution = [eoq(d_range[i], a_range[j], h_range[k]) for i in range(len(d_range)) for j in range(len(a_range)) for k in range(len(h_range))]
-    elif parameter_space == 'montecarlo':
-        eoq_montecarlo = eoq(d_range, a_range, h_range)
-        eoq_distribution = np.random.choice(eoq_montecarlo, size=n_simulations, replace=True)
-    else:
-        eoq_distribution = []
-    
-
-    eoq_credible = eoq_credible_interval(posterior_d, posterior_a, posterior_h, d_range, a_range, h_range)
-
-    output = {
-        'bayesian_eoq_most_probable': {
-            'eoq': eoq_map,
-            'd': d_range[np.argmax(posterior_d)],
-            'a': a_range[np.argmax(posterior_a)],
-            'h': h_range[np.argmax(posterior_h)]
-        },
-        'bayesian_eoq_min_least_probable': {
-            'eoq': eoq_min_lower,
-            'd': min_d,
-            'a': min_a,
-            'h': min_h
-        },
-        'bayesian_eoq_max_least_probable': {
-            'eoq': eoq_min_upper,
-            'd': max_d,
-            'a': max_a,
-            'h': max_h
-        },
-        'eoq_distribution': eoq_distribution,
-        'eoq_credible_interval': eoq_credible}
-
-    return output
+    bayesian_eoq = BayesianEOQ(parameters, n_param_values)
+    return bayesian_eoq.compute_full_analysis(parameter_space, n_simulations)
