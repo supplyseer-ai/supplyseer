@@ -3,7 +3,7 @@ pandas==2.2.3
 polars==1.8.2
 polars-lts-cpu==1.9.0
 pyarrow >= 7.0.0
-pyAgrum==1.13.0
+pyAgrum==1.17.1
 pydantic==2.9.2
 sktime==0.33.0
 ordpy==1.1.5
