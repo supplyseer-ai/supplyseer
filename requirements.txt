@@ -7,7 +7,7 @@ pyAgrum==1.13.0
 pydantic==2.9.2
 sktime==0.33.0
 ordpy==1.1.5
-pytest==8.3.0
+pytest==8.3.3
 pmdarima==2.0.4
 ortools==9.11.4210
 pydantic==2.9.2
