@@ -9,6 +9,6 @@ sktime==0.35.1
 ordpy==1.1.5
 pytest==8.3.0
 pmdarima==2.0.4
-ortools==9.11.4210
+ortools==9.12.4544
 pydantic==2.9.2
 seaborn==0.13.2
