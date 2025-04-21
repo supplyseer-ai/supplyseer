@@ -1,4 +1,4 @@
-numpy==1.26.4
+numpy==2.0.2
 pandas==2.2.3
 polars==1.22.0
 polars-lts-cpu==1.22.0
