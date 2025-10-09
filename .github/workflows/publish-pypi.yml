@@ -1,0 +1,84 @@
+name: Publish to PyPI
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g., 0.2.2)'
+        required: true
+        type: string
+      pypi_repo:
+        description: 'Repository to upload to'
+        required: true
+        type: choice
+        options:
+          - testpypi
+          - pypi
+        default: testpypi
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    environment: publish_pypi
+    permissions:
+      # IMPORTANT: this permission is mandatory for trusted publishing
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build hatchling
+
+      - name: Verify version matches
+        run: |
+          VERSION_IN_FILE=$(grep '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+          INPUT_VERSION="${{ github.event.inputs.version }}"
+          echo "Version in pyproject.toml: $VERSION_IN_FILE"
+          echo "Version from input: $INPUT_VERSION"
+          if [ "$VERSION_IN_FILE" != "$INPUT_VERSION" ]; then
+            echo "❌ Error: Version mismatch!"
+            echo "pyproject.toml has version $VERSION_IN_FILE but you specified $INPUT_VERSION"
+            exit 1
+          fi
+          echo "✅ Version check passed: $VERSION_IN_FILE"
+
+      - name: Build package
+        run: |
+          python -m build
+          echo "📦 Built distributions:"
+          ls -lh dist/
+
+      - name: Check distribution files
+        run: |
+          if [ ! -f dist/supplyseer-${{ github.event.inputs.version }}.tar.gz ]; then
+            echo "❌ Error: Expected source distribution not found"
+            exit 1
+          fi
+          if [ ! -f dist/supplyseer-${{ github.event.inputs.version }}-py3-none-any.whl ]; then
+            echo "❌ Error: Expected wheel not found"
+            exit 1
+          fi
+          echo "✅ All expected distribution files found"
+
+      - name: Publish to TestPyPI
+        if: ${{ github.event.inputs.pypi_repo == 'testpypi' }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          print-hash: true
+
+      - name: Publish to PyPI
+        if: ${{ github.event.inputs.pypi_repo == 'pypi' }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          print-hash: true
