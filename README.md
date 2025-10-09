@@ -1,3 +1,8 @@
+  [![PyPI](https://img.shields.io/pypi/v/supplyseer.svg)](https://pypi.org/project/supplyseer/)
+  [![Python Version](https://img.shields.io/pypi/pyversions/supplyseer.svg)](https://pypi.org/project/supplyseer/)
+  [![License](https://img.shields.io/github/license/supplyseer-ai/supplyseer.svg)](https://github.com/supplyseer-ai/supplyseer/blob/main/LICENSE)
+  [![Tests](https://github.com/supplyseer-ai/supplyseer/actions/workflows/run-tests.yml/badge.svg)](https://github.com/supplyseer-ai/supplyseer/actions)
+  
 <div align="center>
 <p>
     <a target="_blank">
