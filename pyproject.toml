@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "supplyseer"
-version = "0.2.2"
+version = "0.2.3"
 authors = [
   { name="Jako Rostami", email="rostami.jako@gmail.com" },
 ]
@@ -22,13 +22,12 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Intended Audience :: Manufacturing",
     "Development Status :: Pre-release/Alpha",
-    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
-    "Programming Language :: Python :: 3",
 ]
 dependencies = [
     # List dependencies here
