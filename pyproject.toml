@@ -12,8 +12,7 @@ description = "SupplySeer is a library for Applied Computational Supply Chain & 
 readme = "README.md"
 requires-python = ">=3.9"
 classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: AGPL-3.0 License",
     "Operating System :: OS Independent",
     "Topic :: Scientific/Engineering :: Mathematics",
     "Topic :: Office/Business :: Financial :: Investment",
@@ -22,6 +21,14 @@ classifiers = [
     "Topic :: Office/Business :: Financial :: Accounting",
     "Intended Audience :: Science/Research",
     "Intended Audience :: Manufacturing",
+    "Development Status :: Pre-release/Alpha",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3",
 ]
 dependencies = [
     # List dependencies here
