@@ -1,5 +1,5 @@
 numpy==1.26.4
-pandas==2.2.3
+pandas==2.3.3
 polars==1.22.0
 polars-lts-cpu==1.22.0
 pyarrow >= 7.0.0
